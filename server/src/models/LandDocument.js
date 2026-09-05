@@ -1,5 +1,27 @@
 const mongoose = require('mongoose');
 
+const extractedDataSchema = new mongoose.Schema(
+  {
+    ownerName: { type: String, default: 'Not Available' },
+    fatherName: { type: String, default: 'Not Available' },
+    surveyNumber: { type: String, default: 'Not Available' },
+    area: { type: String, default: 'Not Available' },
+    village: { type: String, default: 'Not Available' },
+    transactionType: { type: String, default: 'Not Available' },
+    confidenceScore: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
+const documentQualitySchema = new mongoose.Schema(
+  {
+    score: { type: Number, default: 0 },
+    legibility: { type: String, default: 'Unknown' },
+    issuesDetected: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const landDocumentSchema = new mongoose.Schema(
   {
     filename: {
@@ -34,7 +56,11 @@ const landDocumentSchema = new mongoose.Schema(
       default: null,
     },
     extractedData: {
-      type: mongoose.Schema.Types.Mixed,
+      type: extractedDataSchema,
+      default: null,
+    },
+    documentQuality: {
+      type: documentQualitySchema,
       default: null,
     },
   },
