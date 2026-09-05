@@ -20,15 +20,28 @@ const landRecordSchema = {
     extractedData: {
       type: SchemaType.OBJECT,
       properties: {
-        ownerName: { type: SchemaType.STRING },
-        fatherName: { type: SchemaType.STRING },
+        landownerDetails: {
+          type: SchemaType.OBJECT,
+          properties: {
+            primaryOwnerName: { type: SchemaType.STRING },
+            fatherOrHusbandName: { type: SchemaType.STRING }
+          },
+          required: ["primaryOwnerName", "fatherOrHusbandName"]
+        },
         surveyNumber: { type: SchemaType.STRING },
-        area: { type: SchemaType.STRING },
+        khasraNumber: { type: SchemaType.STRING },
+        khataNumber: { type: SchemaType.STRING },
+        plotArea: { type: SchemaType.STRING },
+        district: { type: SchemaType.STRING },
+        tehsil: { type: SchemaType.STRING },
         village: { type: SchemaType.STRING },
-        transactionType: { type: SchemaType.STRING },
+        landClassification: { type: SchemaType.STRING },
+        ownershipDetails: { type: SchemaType.STRING },
+        mutationRecords: { type: SchemaType.STRING },
+        registrationInformation: { type: SchemaType.STRING },
         confidenceScore: { type: SchemaType.NUMBER, description: "Confidence score from 1-100" }
       },
-      required: ["ownerName", "fatherName", "surveyNumber", "area", "village", "transactionType", "confidenceScore"]
+      required: ["landownerDetails", "surveyNumber", "khasraNumber", "khataNumber", "plotArea", "district", "tehsil", "village", "landClassification", "ownershipDetails", "mutationRecords", "registrationInformation", "confidenceScore"]
     }
   },
   required: ["documentQuality", "extractedData"]
@@ -49,25 +62,7 @@ function fileToGenerativePart(buffer, mimeType) {
   };
 }
 
-/**
- * Fallback mock data in case of API limits or errors.
- */
-const getMockData = () => ({
-  documentQuality: {
-    score: 85,
-    legibility: "Clear",
-    issuesDetected: []
-  },
-  extractedData: {
-    ownerName: "Mock Owner",
-    fatherName: "Mock Father",
-    surveyNumber: "123/4A",
-    area: "1.5 Hectares",
-    village: "Mock Village",
-    transactionType: "Sale",
-    confidenceScore: 80
-  }
-});
+
 
 /**
  * Processes a document image/pdf using Gemini 1.5 Flash.
@@ -77,12 +72,10 @@ const getMockData = () => ({
 async function processLandDocument(fileBuffer, mimeType) {
   // --- Pre-flight checks ---
   if (!process.env.GEMINI_API_KEY) {
-    console.error("ERROR: GEMINI_API_KEY is missing from process.env");
-    return getMockData();
+    throw new Error("AI Processing Failed: GEMINI_API_KEY is missing from process.env");
   }
   if (!fileBuffer || fileBuffer.length === 0) {
-    console.error("ERROR: fileBuffer is empty or undefined");
-    return getMockData();
+    throw new Error("AI Processing Failed: fileBuffer is empty or undefined");
   }
   console.log(`[AI] Processing document: ${(fileBuffer.length / 1024).toFixed(1)}KB, mimeType=${mimeType}`);
 
@@ -99,8 +92,29 @@ async function processLandDocument(fileBuffer, mimeType) {
 
     const imagePart = fileToGenerativePart(fileBuffer, mimeType);
     const prompt = `You are an expert Indian Land Record digitizer. You accept land record documents in any condition (even if blurry, torn, or handwritten) and in multiple Indian languages or English.
-Please extract the required fields accurately. If a field is not found or unreadable, do your best to infer or return "Not Available".
-Assess the document quality and provide a confidence score for the extracted data.`;
+Please extract the required fields accurately. If a field is not found or unreadable, do your best to infer or return an empty string.
+Assess the document quality.
+
+STRICT EXTRACTION RULES:
+- RULE 1 (Strike-throughs): If a value is crossed out, scribbled over, or visually cancelled, IGNORE IT entirely. Only extract the final, un-crossed corrected value.
+- RULE 2 (Strict Numeric Typing): Fields like 'khataNumber', 'khasraNumber', and 'mutationRecords' are identifiers. If a field clearly contains irrelevant alphabetic dictionary words or jokes (e.g., 'Nuclear Physics'), discard it and return an empty string "".
+- RULE 3 (All-or-Nothing Legibility): If any part of a number or word is obscured, scribbled, or illegible (e.g., you can only read the last two digits of a four-digit number), you must discard the ENTIRE value and return an empty string "". Do not guess or return partial fragments.
+
+Calculate the confidenceScore (0-100) by summing points for found data. If a field is missing or rejected due to the rules above, return an empty string "" and award 0 points for it.
+- landownerDetails.primaryOwnerName (+10 points)
+- landownerDetails.fatherOrHusbandName (+5 points)
+- surveyNumber (+15 points)
+- plotArea (+15 points)
+- khasraNumber (+10 points)
+- khataNumber (+10 points)
+- district (+5 points)
+- tehsil (+5 points)
+- village (+5 points)
+- landClassification (+5 points)
+- ownershipDetails (+5 points)
+- mutationRecords (+5 points)
+- registrationInformation (+5 points)
+Total possible score is 100. No fields found = 0.`;
 
     const result = await model.generateContent([prompt, imagePart]);
     const responseText = result.response.text();
@@ -108,22 +122,8 @@ Assess the document quality and provide a confidence score for the extracted dat
     console.log("[AI] Gemini returned live data successfully");
     return JSON.parse(responseText);
   } catch (error) {
-    console.error("CRITICAL GEMINI ERROR:", error);
-    if (
-      error.status === 429 || 
-      error.status === 503 || 
-      (error.message && (
-        error.message.includes("429") || 
-        error.message.includes("503") || 
-        error.message.includes("Quota") || 
-        error.message.includes("Unavailable")
-      ))
-    ) {
-      console.warn("API Limit Reached - Using Fallback Data");
-      return getMockData();
-    }
-    console.warn(`[AI Extraction Error] ${error.message} - Using Fallback Data`);
-    return getMockData();
+    console.error("Gemini API Error:", error);
+    throw new Error("AI Processing Failed: " + error.message);
   }
 }
 

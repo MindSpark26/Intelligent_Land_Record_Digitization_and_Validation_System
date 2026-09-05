@@ -2,12 +2,21 @@ const mongoose = require('mongoose');
 
 const extractedDataSchema = new mongoose.Schema(
   {
-    ownerName: { type: String, default: 'Not Available' },
-    fatherName: { type: String, default: 'Not Available' },
-    surveyNumber: { type: String, default: 'Not Available' },
-    area: { type: String, default: 'Not Available' },
-    village: { type: String, default: 'Not Available' },
-    transactionType: { type: String, default: 'Not Available' },
+    landownerDetails: {
+      primaryOwnerName: { type: String, default: "" },
+      fatherOrHusbandName: { type: String, default: "" }
+    },
+    surveyNumber: { type: String, default: "" },
+    khasraNumber: { type: String, default: "" },
+    khataNumber: { type: String, default: "" },
+    plotArea: { type: String, default: "" },
+    district: { type: String, default: "" },
+    tehsil: { type: String, default: "" },
+    village: { type: String, default: "" },
+    landClassification: { type: String, default: "" },
+    ownershipDetails: { type: String, default: "" },
+    mutationRecords: { type: String, default: "" },
+    registrationInformation: { type: String, default: "" },
     confidenceScore: { type: Number, default: 0 },
   },
   { _id: false }

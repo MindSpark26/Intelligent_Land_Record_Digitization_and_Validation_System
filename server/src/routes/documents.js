@@ -15,42 +15,29 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded. Please provide a PDF or image file.' });
     }
 
-    // --- Step 1: Create initial record ---
-    let landDocument;
-    try {
-      landDocument = new LandDocument({
-        filename: req.file.filename,
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        fileSize: req.file.size,
-        status: 'Processing',
-      });
-      await landDocument.save();
-    } catch (dbErr) {
-      console.error('MongoDB Save Error (initial):', dbErr);
-      return res.status(500).json({ error: 'Database save failed', details: dbErr.message });
-    }
-
-    // --- Step 2: AI extraction ---
+    // --- Step 1: AI extraction ---
     const fileBuffer = fs.readFileSync(req.file.path);
     const aiResult = await processLandDocument(fileBuffer, req.file.mimetype);
 
-    // --- Step 3: Update record with AI data ---
-    landDocument.extractedData = aiResult.extractedData;
-    landDocument.documentQuality = aiResult.documentQuality;
-    landDocument.confidenceScore = aiResult.extractedData.confidenceScore;
+    // --- Step 2: Create and save record with AI data ---
+    const confidenceScore = aiResult.extractedData.confidenceScore || 0;
+    const status = confidenceScore >= 75 ? 'Validated' : 'Needs Review';
 
-    // Apply business logic based on confidence score
-    if (landDocument.confidenceScore >= 75) {
-      landDocument.status = 'Validated';
-    } else {
-      landDocument.status = 'Needs Review';
-    }
+    const landDocument = new LandDocument({
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      fileSize: req.file.size,
+      status: status,
+      confidenceScore: confidenceScore,
+      extractedData: aiResult.extractedData,
+      documentQuality: aiResult.documentQuality,
+    });
 
     try {
       await landDocument.save();
     } catch (dbErr) {
-      console.error('MongoDB Save Error (update):', dbErr);
+      console.error('MongoDB Save Error:', dbErr);
       return res.status(500).json({ error: 'Database save failed', details: dbErr.message });
     }
 
@@ -62,7 +49,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     });
   } catch (err) {
     console.error('[Upload Error]', err);
-    return res.status(500).json({ error: 'Failed to upload document', details: err.message });
+    return res.status(500).json({ error: 'AI failed to process the document', details: err.message });
   }
 });
 
