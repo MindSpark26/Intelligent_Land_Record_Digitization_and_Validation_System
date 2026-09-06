@@ -55,19 +55,13 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-r-lg text-sm font-medium transition-all duration-200 group ${
                 isActive
-                  ? 'bg-orange-500/15 text-orange-400'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-gradient-to-r from-white/20 to-transparent border-l-4 border-orange-500 text-white'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white border-l-4 border-transparent'
               }`}
             >
-              {/* Saffron active indicator bar */}
-              <div
-                className={`absolute left-0 w-[3px] h-7 rounded-r-full transition-all duration-200 ${
-                  isActive ? 'bg-orange-500' : 'bg-transparent'
-                }`}
-              />
-              <span className={isActive ? 'text-orange-400' : 'text-slate-400 group-hover:text-slate-200'}>
+              <span className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}>
                 {item.icon}
               </span>
               {item.label}
