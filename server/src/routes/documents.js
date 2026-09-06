@@ -17,7 +17,10 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     }
 
     // --- Step 1: AI extraction ---
-    const fileBuffer = fs.readFileSync(req.file.path);
+    const response = await fetch(req.file.path);
+    const arrayBuffer = await response.arrayBuffer();
+    const fileBuffer = Buffer.from(arrayBuffer);
+    
     const aiResult = await processLandDocument(fileBuffer, req.file.mimetype);
 
     // --- Step 2: Score document and save ---
@@ -27,6 +30,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     const landDocument = new LandDocument({
       filename: req.file.filename,
       originalName: req.file.originalname,
+      cloudinaryUrl: req.file.path,
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
       status: status,

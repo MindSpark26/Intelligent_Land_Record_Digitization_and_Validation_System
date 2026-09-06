@@ -37,7 +37,12 @@ function getNestedValue(obj, path) {
 function buildFormData(extractedData) {
   const data = {};
   for (const field of FIELD_DEFS) {
-    data[field.key] = getNestedValue(extractedData, field.key);
+    if (field.key === 'plotArea') {
+      data['plotArea.value'] = extractedData?.plotArea?.value || '';
+      data['plotArea.unit'] = extractedData?.plotArea?.unit || '';
+    } else {
+      data[field.key] = getNestedValue(extractedData, field.key);
+    }
   }
   return data;
 }
@@ -48,11 +53,15 @@ function buildFormData(extractedData) {
 function formDataToPayload(formData) {
   const payload = {};
   const landownerDetails = {};
+  const plotArea = {};
 
   for (const [key, value] of Object.entries(formData)) {
     if (key.startsWith('landownerDetails.')) {
       const subKey = key.replace('landownerDetails.', '');
       landownerDetails[subKey] = value;
+    } else if (key.startsWith('plotArea.')) {
+      const subKey = key.replace('plotArea.', '');
+      plotArea[subKey] = value;
     } else {
       payload[key] = value;
     }
@@ -60,6 +69,9 @@ function formDataToPayload(formData) {
 
   if (Object.keys(landownerDetails).length > 0) {
     payload.landownerDetails = landownerDetails;
+  }
+  if (Object.keys(plotArea).length > 0) {
+    payload.plotArea = plotArea;
   }
 
   return payload;
@@ -79,7 +91,7 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
 
   if (!isOpen || !document) return null;
 
-  const NUMERIC_FIELDS = ['khasraNumber', 'khataNumber', 'surveyNumber', 'plotArea', 'mutationRecords'];
+  const NUMERIC_FIELDS = ['khasraNumber', 'khataNumber', 'surveyNumber', 'plotArea.value', 'mutationRecords'];
 
   const validateField = (key, value) => {
     if (!value) return null;
@@ -148,7 +160,7 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col mx-4">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col mx-4">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
           <div>
@@ -168,7 +180,27 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-col md:flex-row h-full">
+            {/* Left Column: Image */}
+            <div className="md:w-1/2 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-100 flex flex-col min-h-[300px]">
+              {document.cloudinaryUrl ? (
+                <div className="flex-1 p-4 flex items-center justify-center">
+                  <img 
+                    src={document.cloudinaryUrl} 
+                    alt="Document" 
+                    className="w-full h-full max-h-[70vh] object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 p-4 flex items-center justify-center text-slate-400 text-sm">
+                  No image available
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Form */}
+            <div className="md:w-1/2 p-6 overflow-y-auto">
           {/* Meta info */}
           <div className="flex items-center gap-4 mb-6 pb-4 border-b border-slate-100">
             <div className="flex-1">
@@ -204,25 +236,67 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
                     {field.label}
                   </label>
                   {isEditing ? (
-                    <div>
-                      <input
-                        type="text"
-                        value={formData[field.key] || ''}
-                        onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                        className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors bg-white text-slate-800 ${
-                          errors[field.key]
-                            ? 'border-red-500 focus:ring-red-500/40 focus:border-red-500'
-                            : 'border-slate-200 focus:ring-orange-500/40 focus:border-orange-500'
-                        }`}
-                      />
-                      {errors[field.key] && (
-                        <span className="text-red-500 text-sm mt-1 block">{errors[field.key]}</span>
-                      )}
-                    </div>
+                    field.key === 'plotArea' ? (
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="Value"
+                            value={formData['plotArea.value'] || ''}
+                            onChange={(e) => handleFieldChange('plotArea.value', e.target.value)}
+                            className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors bg-white text-slate-800 ${
+                              errors['plotArea.value']
+                                ? 'border-red-500 focus:ring-red-500/40 focus:border-red-500'
+                                : 'border-slate-200 focus:ring-orange-500/40 focus:border-orange-500'
+                            }`}
+                          />
+                          {errors['plotArea.value'] && (
+                            <span className="text-red-500 text-sm mt-1 block">{errors['plotArea.value']}</span>
+                          )}
+                        </div>
+                        <select
+                          value={formData['plotArea.unit'] || ''}
+                          onChange={(e) => handleFieldChange('plotArea.unit', e.target.value)}
+                          className="w-[120px] px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 bg-white text-slate-800"
+                        >
+                          <option value="">Unit</option>
+                          <option value="Hectares">Hectares</option>
+                          <option value="Ares">Ares</option>
+                          <option value="Sq Meters">Sq Meters</option>
+                          <option value="Acres">Acres</option>
+                          <option value="Bigha">Bigha</option>
+                          <option value="Guntha">Guntha</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="text"
+                          value={formData[field.key] || ''}
+                          onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                          className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors bg-white text-slate-800 ${
+                            errors[field.key]
+                              ? 'border-red-500 focus:ring-red-500/40 focus:border-red-500'
+                              : 'border-slate-200 focus:ring-orange-500/40 focus:border-orange-500'
+                          }`}
+                        />
+                        {errors[field.key] && (
+                          <span className="text-red-500 text-sm mt-1 block">{errors[field.key]}</span>
+                        )}
+                      </div>
+                    )
                   ) : (
                     <p className="text-sm text-slate-800 py-2 px-3 bg-slate-50 rounded-lg min-h-[38px] flex items-center">
-                      {getNestedValue(document.extractedData, field.key) || (
-                        <span className="text-slate-300">—</span>
+                      {field.key === 'plotArea' ? (
+                        (document.extractedData?.plotArea?.value || document.extractedData?.plotArea?.unit) ? (
+                          `${document.extractedData.plotArea.value || ''} ${document.extractedData.plotArea.unit || ''}`.trim()
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )
+                      ) : (
+                        getNestedValue(document.extractedData, field.key) || (
+                          <span className="text-slate-300">—</span>
+                        )
                       )}
                     </p>
                   )}
@@ -231,12 +305,13 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
             </div>
           )}
 
-          {/* Error message */}
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-600">⚠ {error}</p>
             </div>
           )}
+          </div>
+          </div>
         </div>
 
         {/* Footer */}

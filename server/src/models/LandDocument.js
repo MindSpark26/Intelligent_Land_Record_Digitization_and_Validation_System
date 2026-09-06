@@ -9,7 +9,10 @@ const extractedDataSchema = new mongoose.Schema(
     surveyNumber: { type: String, default: "" },
     khasraNumber: { type: String, default: "" },
     khataNumber: { type: String, default: "" },
-    plotArea: { type: String, default: "" },
+    plotArea: {
+      value: { type: String, default: "" },
+      unit: { type: String, default: "" }
+    },
     district: { type: String, default: "" },
     tehsil: { type: String, default: "" },
     village: { type: String, default: "" },
@@ -53,6 +56,10 @@ const landDocumentSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    cloudinaryUrl: {
+      type: String,
+      default: null,
     },
     mimeType: {
       type: String,

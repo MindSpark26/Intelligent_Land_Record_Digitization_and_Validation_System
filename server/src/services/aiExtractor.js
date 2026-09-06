@@ -35,13 +35,19 @@ const landRecordSchema = {
         surveyNumber: { type: SchemaType.STRING },
         khasraNumber: { type: SchemaType.STRING },
         khataNumber: { type: SchemaType.STRING },
-        plotArea: { type: SchemaType.STRING },
+        plotArea: {
+          type: SchemaType.OBJECT,
+          properties: {
+            value: { type: SchemaType.STRING },
+            unit: { type: SchemaType.STRING }
+          },
+          required: ["value", "unit"]
+        },
         district: { type: SchemaType.STRING },
         tehsil: { type: SchemaType.STRING },
         village: { type: SchemaType.STRING },
         landClassification: { type: SchemaType.STRING },
         ownershipDetails: { type: SchemaType.STRING },
-        mutationRecords: { type: SchemaType.STRING },
         mutationRecords: { type: SchemaType.STRING },
         registrationInformation: { type: SchemaType.STRING }
       },
@@ -102,7 +108,8 @@ Assess the document quality, and provide an aiBaseConfidence (0-100) assessing o
 STRICT EXTRACTION RULES:
 - RULE 1 (Strike-throughs): If a value is crossed out, scribbled over, or visually cancelled, IGNORE IT entirely. Only extract the final, un-crossed corrected value.
 - RULE 2 (Strict Numeric Typing): Fields like 'khataNumber', 'khasraNumber', and 'mutationRecords' are identifiers. If a field clearly contains irrelevant alphabetic dictionary words or jokes (e.g., 'Nuclear Physics'), discard it and return an empty string "".
-- RULE 3 (All-or-Nothing Legibility): If any part of a number or word is obscured, scribbled, or illegible (e.g., you can only read the last two digits of a four-digit number), you must discard the ENTIRE value and return an empty string "". Do not guess or return partial fragments.`;
+- RULE 3 (All-or-Nothing Legibility): If any part of a number or word is obscured, scribbled, or illegible (e.g., you can only read the last two digits of a four-digit number), you must discard the ENTIRE value and return an empty string "". Do not guess or return partial fragments.
+- RULE 4 (Plot Area Separation): For plotArea, separate the number from the unit. Extract only the digits/decimals into \`plotArea.value\`. Extract the measurement unit (e.g., Hectares, Ares, Acres, Bigha, Guntha, Sq Meters) into \`plotArea.unit\`. If no unit is written, leave \`unit\` as an empty string.`;
 
     const result = await model.generateContent([prompt, imagePart]);
     const responseText = result.response.text();

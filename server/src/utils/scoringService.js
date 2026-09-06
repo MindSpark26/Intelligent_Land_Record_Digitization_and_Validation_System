@@ -9,7 +9,7 @@ const ALL_FIELDS = [
   { key: 'surveyNumber', critical: true, cap: 50 },
   { key: 'khasraNumber', critical: false },
   { key: 'khataNumber', critical: false },
-  { key: 'plotArea', critical: false },
+  { key: 'plotArea.value', critical: false },
   { key: 'district', critical: false },
   { key: 'tehsil', critical: false },
   { key: 'village', critical: false },
@@ -19,7 +19,7 @@ const ALL_FIELDS = [
   { key: 'registrationInformation', critical: false }
 ];
 
-const NUMERIC_FORMAT_FIELDS = ['surveyNumber', 'khasraNumber', 'khataNumber', 'plotArea'];
+const NUMERIC_FORMAT_FIELDS = ['surveyNumber', 'khasraNumber', 'khataNumber', 'plotArea.value'];
 
 function getNestedValue(obj, path) {
   if (!obj) return undefined;

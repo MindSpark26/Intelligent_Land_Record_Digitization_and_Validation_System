@@ -14,8 +14,6 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Try MongoDB first, fall back to in-memory store
 let useMongoose = false;

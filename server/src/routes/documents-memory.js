@@ -14,11 +14,11 @@ function generateId() {
 
 // Pool of dummy extracted data (proper schema)
 const dummyDataPool = [
-  { landownerDetails: { primaryOwnerName: 'Ramesh Kumar' }, surveyNumber: '104/2', village: 'Paldi', district: 'Ahmedabad', plotArea: '2.5' },
-  { landownerDetails: { primaryOwnerName: 'Sunita Devi' }, surveyNumber: '78/1', village: 'Mandal', district: 'Jaipur', plotArea: '1.8' },
-  { landownerDetails: { primaryOwnerName: 'Anil Sharma' }, surveyNumber: '215/3', village: 'Bhopal Nagar', district: 'Indore', plotArea: '3.2' },
-  { landownerDetails: { primaryOwnerName: 'Priya Patel' }, surveyNumber: '56/7', village: 'Vasna', district: 'Vadodara', plotArea: '0.9' },
-  { landownerDetails: { primaryOwnerName: 'Mohan Singh' }, surveyNumber: '332/1', village: 'Kheri', district: 'Lucknow', plotArea: '4.1' },
+  { landownerDetails: { primaryOwnerName: 'Ramesh Kumar' }, surveyNumber: '104/2', village: 'Paldi', district: 'Ahmedabad', plotArea: { value: '2.5', unit: 'Acres' } },
+  { landownerDetails: { primaryOwnerName: 'Sunita Devi' }, surveyNumber: '78/1', village: 'Mandal', district: 'Jaipur', plotArea: { value: '1.8', unit: 'Acres' } },
+  { landownerDetails: { primaryOwnerName: 'Anil Sharma' }, surveyNumber: '215/3', village: 'Bhopal Nagar', district: 'Indore', plotArea: { value: '3.2', unit: 'Hectares' } },
+  { landownerDetails: { primaryOwnerName: 'Priya Patel' }, surveyNumber: '56/7', village: 'Vasna', district: 'Vadodara', plotArea: { value: '0.9', unit: 'Bigha' } },
+  { landownerDetails: { primaryOwnerName: 'Mohan Singh' }, surveyNumber: '332/1', village: 'Kheri', district: 'Lucknow', plotArea: { value: '4.1', unit: 'Guntha' } },
 ];
 
 /**
@@ -53,6 +53,7 @@ router.post('/upload', upload.single('document'), (req, res) => {
       _id: generateId(),
       filename: req.file.filename,
       originalName: req.file.originalname,
+      cloudinaryUrl: req.file.path,
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
       uploadDate: new Date().toISOString(),

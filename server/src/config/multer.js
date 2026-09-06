@@ -1,22 +1,21 @@
 const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary').v2;
 const path = require('path');
-const fs = require('fs');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `${uniqueSuffix}${ext}`);
-  },
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'land_records',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'pdf', 'tiff']
+  }
 });
 
 const fileFilter = (_req, file, cb) => {
