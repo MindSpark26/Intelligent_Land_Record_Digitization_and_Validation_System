@@ -17,7 +17,6 @@ const extractedDataSchema = new mongoose.Schema(
     ownershipDetails: { type: String, default: "" },
     mutationRecords: { type: String, default: "" },
     registrationInformation: { type: String, default: "" },
-    confidenceScore: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -27,6 +26,18 @@ const documentQualitySchema = new mongoose.Schema(
     score: { type: Number, default: 0 },
     legibility: { type: String, default: 'Unknown' },
     issuesDetected: { type: [String], default: [] },
+    aiBaseConfidence: { type: Number, default: 0 }
+  },
+  { _id: false }
+);
+
+const scoringDetailsSchema = new mongoose.Schema(
+  {
+    completeness: { type: Number, default: 0 },
+    confidence: { type: Number, default: 0 },
+    validity: { type: Number, default: 0 },
+    finalScore: { type: Number, default: 0 },
+    missingCriticalFields: { type: [String], default: [] },
   },
   { _id: false }
 );
@@ -60,8 +71,8 @@ const landDocumentSchema = new mongoose.Schema(
       enum: ['Pending', 'Processing', 'Needs Review', 'Validated'],
       default: 'Pending',
     },
-    confidenceScore: {
-      type: Number,
+    scoringDetails: {
+      type: scoringDetailsSchema,
       default: null,
     },
     extractedData: {

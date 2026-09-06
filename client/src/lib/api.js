@@ -32,6 +32,41 @@ export async function uploadDocument(file) {
 }
 
 /**
+ * Update the extractedData of a document by ID.
+ * @param {string} id - The document _id
+ * @param {object} extractedData - The updated extractedData fields
+ */
+export async function updateDocument(id, extractedData) {
+  const res = await fetch(`${API_BASE}/documents/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(extractedData),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Update failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+/**
+ * Permanently delete a document by ID.
+ * @param {string} id - The document _id
+ */
+export async function deleteDocument(id) {
+  const res = await fetch(`${API_BASE}/documents/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `Delete failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+/**
  * Check backend health.
  */
 export async function checkHealth() {

@@ -4,6 +4,7 @@ const upload = require('../config/multer');
 const fs = require('fs');
 const LandDocument = require('../models/LandDocument');
 const { processLandDocument } = require('../services/aiExtractor');
+const { calculateDocumentScore } = require('../utils/scoringService');
 
 /**
  * POST /api/upload
@@ -19,9 +20,9 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     const fileBuffer = fs.readFileSync(req.file.path);
     const aiResult = await processLandDocument(fileBuffer, req.file.mimetype);
 
-    // --- Step 2: Create and save record with AI data ---
-    const confidenceScore = aiResult.extractedData.confidenceScore || 0;
-    const status = confidenceScore >= 75 ? 'Validated' : 'Needs Review';
+    // --- Step 2: Score document and save ---
+    const aiBaseConfidence = aiResult.documentQuality?.aiBaseConfidence || 0;
+    const { scoringDetails, status } = calculateDocumentScore(aiResult.extractedData, false, aiBaseConfidence);
 
     const landDocument = new LandDocument({
       filename: req.file.filename,
@@ -29,7 +30,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
       status: status,
-      confidenceScore: confidenceScore,
+      scoringDetails: scoringDetails,
       extractedData: aiResult.extractedData,
       documentQuality: aiResult.documentQuality,
     });
@@ -64,6 +65,93 @@ router.get('/documents', async (_req, res) => {
   } catch (err) {
     console.error('[Fetch Error]', err.message);
     return res.status(500).json({ error: 'Failed to fetch documents' });
+  }
+});
+
+/**
+ * PUT /api/documents/:id
+ * Updates the extractedData fields of an existing document.
+ * Recalculates confidenceScore and status based on the edited data.
+ */
+router.put('/documents/:id', async (req, res) => {
+  try {
+    const { landownerDetails, ...flatFields } = req.body;
+
+    // --- Step 1: Fetch existing document to merge data for scoring ---
+    const existing = await LandDocument.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Build the merged extractedData object for scoring
+    const mergedData = existing.extractedData
+      ? JSON.parse(JSON.stringify(existing.extractedData))
+      : {};
+
+    // Apply flat field edits
+    for (const [key, value] of Object.entries(flatFields)) {
+      mergedData[key] = value;
+    }
+
+    // Apply nested landownerDetails edits
+    if (landownerDetails && typeof landownerDetails === 'object') {
+      if (!mergedData.landownerDetails) {
+        mergedData.landownerDetails = {};
+      }
+      for (const [key, value] of Object.entries(landownerDetails)) {
+        mergedData.landownerDetails[key] = value;
+      }
+    }
+
+    // --- Step 2: Recalculate score and status ---
+    const { scoringDetails, status: newStatus } = calculateDocumentScore(mergedData, true, 100);
+
+    // --- Step 3: Build dot-notation update payload ---
+    const updateObj = {};
+
+    for (const [key, value] of Object.entries(flatFields)) {
+      updateObj[`extractedData.${key}`] = value;
+    }
+
+    if (landownerDetails && typeof landownerDetails === 'object') {
+      for (const [key, value] of Object.entries(landownerDetails)) {
+        updateObj[`extractedData.landownerDetails.${key}`] = value;
+      }
+    }
+
+    // Append recalculated scoring details and status
+    updateObj['scoringDetails'] = scoringDetails;
+    updateObj['status'] = newStatus;
+
+    const updated = await LandDocument.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateObj },
+      { new: true, runValidators: true }
+    );
+
+    return res.json({ message: 'Document updated successfully', document: updated });
+  } catch (err) {
+    console.error('[Update Error]', err.message);
+    return res.status(500).json({ error: 'Failed to update document', details: err.message });
+  }
+});
+
+/**
+ * DELETE /api/documents/:id
+ * Permanently removes a document from the database.
+ */
+router.delete('/documents/:id', async (req, res) => {
+  try {
+    const deleted = await LandDocument.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    return res.json({ message: 'Document deleted successfully' });
+  } catch (err) {
+    console.error('[Delete Error]', err.message);
+    return res.status(500).json({ error: 'Failed to delete document', details: err.message });
   }
 });
 

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const upload = require('../config/multer');
 const { v4: uuidv4 } = require('crypto');
+const { calculateDocumentScore } = require('../utils/scoringService');
 
 // ---------- In-Memory Store ----------
 const documents = [];
@@ -11,13 +12,13 @@ function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
 }
 
-// Pool of dummy extracted data
+// Pool of dummy extracted data (proper schema)
 const dummyDataPool = [
-  { ownerName: 'Ramesh Kumar', surveyNumber: '104/2', village: 'Paldi', district: 'Ahmedabad', area: '2.5 acres' },
-  { ownerName: 'Sunita Devi', surveyNumber: '78/1', village: 'Mandal', district: 'Jaipur', area: '1.8 acres' },
-  { ownerName: 'Anil Sharma', surveyNumber: '215/3', village: 'Bhopal Nagar', district: 'Indore', area: '3.2 acres' },
-  { ownerName: 'Priya Patel', surveyNumber: '56/7', village: 'Vasna', district: 'Vadodara', area: '0.9 acres' },
-  { ownerName: 'Mohan Singh', surveyNumber: '332/1', village: 'Kheri', district: 'Lucknow', area: '4.1 acres' },
+  { landownerDetails: { primaryOwnerName: 'Ramesh Kumar' }, surveyNumber: '104/2', village: 'Paldi', district: 'Ahmedabad', plotArea: '2.5' },
+  { landownerDetails: { primaryOwnerName: 'Sunita Devi' }, surveyNumber: '78/1', village: 'Mandal', district: 'Jaipur', plotArea: '1.8' },
+  { landownerDetails: { primaryOwnerName: 'Anil Sharma' }, surveyNumber: '215/3', village: 'Bhopal Nagar', district: 'Indore', plotArea: '3.2' },
+  { landownerDetails: { primaryOwnerName: 'Priya Patel' }, surveyNumber: '56/7', village: 'Vasna', district: 'Vadodara', plotArea: '0.9' },
+  { landownerDetails: { primaryOwnerName: 'Mohan Singh' }, surveyNumber: '332/1', village: 'Kheri', district: 'Lucknow', plotArea: '4.1' },
 ];
 
 /**
@@ -28,11 +29,14 @@ function processDocument(docId) {
     const doc = documents.find((d) => d._id === docId);
     if (!doc || doc.status !== 'Pending') return;
 
-    doc.status = 'Needs Review';
-    doc.confidenceScore = Math.round((Math.random() * 35 + 40) * 10) / 10;
     doc.extractedData = dummyDataPool[Math.floor(Math.random() * dummyDataPool.length)];
+    const aiBaseConfidence = Math.round(Math.random() * 35 + 40);
+    const { scoringDetails, status } = calculateDocumentScore(doc.extractedData, false, aiBaseConfidence);
+    
+    doc.scoringDetails = scoringDetails;
+    doc.status = status;
 
-    console.log(`[Mock AI] Processed document ${docId} — confidence: ${doc.confidenceScore}%`);
+    console.log(`[Mock AI] Processed document ${docId} — finalScore: ${doc.scoringDetails.finalScore}`);
   }, 3000);
 }
 
@@ -53,7 +57,7 @@ router.post('/upload', upload.single('document'), (req, res) => {
       fileSize: req.file.size,
       uploadDate: new Date().toISOString(),
       status: 'Pending',
-      confidenceScore: null,
+      scoringDetails: null,
       extractedData: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -85,6 +89,74 @@ router.get('/documents', (_req, res) => {
   } catch (err) {
     console.error('[Fetch Error]', err.message);
     return res.status(500).json({ error: 'Failed to fetch documents' });
+  }
+});
+
+/**
+ * PUT /api/documents/:id
+ * Updates extractedData fields of an in-memory document.
+ */
+router.put('/documents/:id', (req, res) => {
+  try {
+    const doc = documents.find((d) => d._id === req.params.id);
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    const { landownerDetails, ...flatFields } = req.body;
+
+    // Ensure extractedData exists
+    if (!doc.extractedData) {
+      doc.extractedData = {};
+    }
+
+    // Apply flat fields
+    for (const [key, value] of Object.entries(flatFields)) {
+      doc.extractedData[key] = value;
+    }
+
+    // Apply nested landownerDetails fields
+    if (landownerDetails && typeof landownerDetails === 'object') {
+      if (!doc.extractedData.landownerDetails) {
+        doc.extractedData.landownerDetails = {};
+      }
+      for (const [key, value] of Object.entries(landownerDetails)) {
+        doc.extractedData.landownerDetails[key] = value;
+      }
+    }
+
+    // Recalculate score and status based on edited data
+    const { scoringDetails, status: newStatus } = calculateDocumentScore(doc.extractedData, true, 100);
+    delete doc.extractedData.confidenceScore;
+    delete doc.confidenceScore;
+    doc.scoringDetails = scoringDetails;
+    doc.status = newStatus;
+
+    doc.updatedAt = new Date().toISOString();
+
+    return res.json({ message: 'Document updated successfully', document: doc });
+  } catch (err) {
+    console.error('[Update Error]', err.message);
+    return res.status(500).json({ error: 'Failed to update document', details: err.message });
+  }
+});
+
+/**
+ * DELETE /api/documents/:id
+ * Permanently removes a document from the in-memory store.
+ */
+router.delete('/documents/:id', (req, res) => {
+  try {
+    const index = documents.findIndex((d) => d._id === req.params.id);
+    if (index === -1) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    documents.splice(index, 1);
+    return res.json({ message: 'Document deleted successfully' });
+  } catch (err) {
+    console.error('[Delete Error]', err.message);
+    return res.status(500).json({ error: 'Failed to delete document', details: err.message });
   }
 });
 

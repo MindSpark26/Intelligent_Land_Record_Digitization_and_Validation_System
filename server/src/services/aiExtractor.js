@@ -13,9 +13,13 @@ const landRecordSchema = {
           type: SchemaType.ARRAY,
           items: { type: SchemaType.STRING },
           description: "List of issues like 'torn edges', 'watermarks'"
+        },
+        aiBaseConfidence: {
+          type: SchemaType.NUMBER,
+          description: "A single 0-100 estimate assessing only the visual legibility/clarity of the text."
         }
       },
-      required: ["score", "legibility", "issuesDetected"]
+      required: ["score", "legibility", "issuesDetected", "aiBaseConfidence"]
     },
     extractedData: {
       type: SchemaType.OBJECT,
@@ -38,10 +42,10 @@ const landRecordSchema = {
         landClassification: { type: SchemaType.STRING },
         ownershipDetails: { type: SchemaType.STRING },
         mutationRecords: { type: SchemaType.STRING },
-        registrationInformation: { type: SchemaType.STRING },
-        confidenceScore: { type: SchemaType.NUMBER, description: "Confidence score from 1-100" }
+        mutationRecords: { type: SchemaType.STRING },
+        registrationInformation: { type: SchemaType.STRING }
       },
-      required: ["landownerDetails", "surveyNumber", "khasraNumber", "khataNumber", "plotArea", "district", "tehsil", "village", "landClassification", "ownershipDetails", "mutationRecords", "registrationInformation", "confidenceScore"]
+      required: ["landownerDetails", "surveyNumber", "khasraNumber", "khataNumber", "plotArea", "district", "tehsil", "village", "landClassification", "ownershipDetails", "mutationRecords", "registrationInformation"]
     }
   },
   required: ["documentQuality", "extractedData"]
@@ -93,28 +97,12 @@ async function processLandDocument(fileBuffer, mimeType) {
     const imagePart = fileToGenerativePart(fileBuffer, mimeType);
     const prompt = `You are an expert Indian Land Record digitizer. You accept land record documents in any condition (even if blurry, torn, or handwritten) and in multiple Indian languages or English.
 Please extract the required fields accurately. If a field is not found or unreadable, do your best to infer or return an empty string.
-Assess the document quality.
+Assess the document quality, and provide an aiBaseConfidence (0-100) assessing only the visual legibility/clarity of the text.
 
 STRICT EXTRACTION RULES:
 - RULE 1 (Strike-throughs): If a value is crossed out, scribbled over, or visually cancelled, IGNORE IT entirely. Only extract the final, un-crossed corrected value.
 - RULE 2 (Strict Numeric Typing): Fields like 'khataNumber', 'khasraNumber', and 'mutationRecords' are identifiers. If a field clearly contains irrelevant alphabetic dictionary words or jokes (e.g., 'Nuclear Physics'), discard it and return an empty string "".
-- RULE 3 (All-or-Nothing Legibility): If any part of a number or word is obscured, scribbled, or illegible (e.g., you can only read the last two digits of a four-digit number), you must discard the ENTIRE value and return an empty string "". Do not guess or return partial fragments.
-
-Calculate the confidenceScore (0-100) by summing points for found data. If a field is missing or rejected due to the rules above, return an empty string "" and award 0 points for it.
-- landownerDetails.primaryOwnerName (+10 points)
-- landownerDetails.fatherOrHusbandName (+5 points)
-- surveyNumber (+15 points)
-- plotArea (+15 points)
-- khasraNumber (+10 points)
-- khataNumber (+10 points)
-- district (+5 points)
-- tehsil (+5 points)
-- village (+5 points)
-- landClassification (+5 points)
-- ownershipDetails (+5 points)
-- mutationRecords (+5 points)
-- registrationInformation (+5 points)
-Total possible score is 100. No fields found = 0.`;
+- RULE 3 (All-or-Nothing Legibility): If any part of a number or word is obscured, scribbled, or illegible (e.g., you can only read the last two digits of a four-digit number), you must discard the ENTIRE value and return an empty string "". Do not guess or return partial fragments.`;
 
     const result = await model.generateContent([prompt, imagePart]);
     const responseText = result.response.text();
