@@ -19,7 +19,8 @@ const ALL_FIELDS = [
   { key: 'registrationInformation', critical: false }
 ];
 
-const NUMERIC_FORMAT_FIELDS = ['surveyNumber', 'khasraNumber', 'khataNumber', 'plotArea.value'];
+const NUMERIC_FIELDS = ['plotArea.value', 'mutationRecords'];
+const ALPHANUMERIC_FIELDS = ['surveyNumber', 'khasraNumber', 'khataNumber'];
 
 function getNestedValue(obj, path) {
   if (!obj) return undefined;
@@ -48,7 +49,8 @@ function calculateDocumentScore(extractedData, isHumanEdit = false, aiBaseConfid
   // 1. Completeness & Caps
   ALL_FIELDS.forEach(field => {
     const value = getNestedValue(extractedData, field.key);
-    const isFilled = typeof value === 'string' && value.trim() !== '';
+    const isNA = typeof value === 'string' && value.trim() === 'N/A';
+    const isFilled = isNA || (typeof value === 'string' && value.trim() !== '');
 
     if (isFilled) {
       filledFieldsCount++;
@@ -65,12 +67,19 @@ function calculateDocumentScore(extractedData, isHumanEdit = false, aiBaseConfid
   // 2. Validity
   ALL_FIELDS.forEach(field => {
     const value = getNestedValue(extractedData, field.key);
-    const isFilled = typeof value === 'string' && value.trim() !== '';
+    const isNA = typeof value === 'string' && value.trim() === 'N/A';
+    const isFilled = isNA || (typeof value === 'string' && value.trim() !== '');
 
     if (isFilled) {
-      if (NUMERIC_FORMAT_FIELDS.includes(field.key)) {
+      if (isNA) {
+        validFieldsCount++;
+      } else if (NUMERIC_FIELDS.includes(field.key)) {
         // Must contain only numbers, dots, hyphens, slashes, spaces
         const isValid = /^[0-9\/\-\.\s]*$/.test(value);
+        if (isValid) validFieldsCount++;
+      } else if (ALPHANUMERIC_FIELDS.includes(field.key)) {
+        // Universal alphanumeric regex for regional formats
+        const isValid = /^[a-zA-Z0-9\/\-\s.,()]+$/.test(value);
         if (isValid) validFieldsCount++;
       } else {
         // Alphabetic fields - allow letters, spaces, and basic punctuation

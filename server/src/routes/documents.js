@@ -34,6 +34,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
       mimeType: req.file.mimetype,
       fileSize: req.file.size,
       status: status,
+      flaggedFields: aiResult.flaggedFields || [],
       scoringDetails: scoringDetails,
       extractedData: aiResult.extractedData,
       documentQuality: aiResult.documentQuality,
@@ -79,7 +80,7 @@ router.get('/documents', async (_req, res) => {
  */
 router.put('/documents/:id', async (req, res) => {
   try {
-    const { landownerDetails, ...flatFields } = req.body;
+    const { landownerDetails, flaggedFields, ...flatFields } = req.body;
 
     // --- Step 1: Fetch existing document to merge data for scoring ---
     const existing = await LandDocument.findById(req.params.id);
@@ -121,6 +122,10 @@ router.put('/documents/:id', async (req, res) => {
       for (const [key, value] of Object.entries(landownerDetails)) {
         updateObj[`extractedData.landownerDetails.${key}`] = value;
       }
+    }
+
+    if (flaggedFields !== undefined) {
+      updateObj['flaggedFields'] = flaggedFields;
     }
 
     // Append recalculated scoring details and status

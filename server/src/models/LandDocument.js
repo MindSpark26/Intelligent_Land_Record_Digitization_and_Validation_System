@@ -6,9 +6,9 @@ const extractedDataSchema = new mongoose.Schema(
       primaryOwnerName: { type: String, default: "" },
       fatherOrHusbandName: { type: String, default: "" }
     },
-    surveyNumber: { type: String, default: "" },
-    khasraNumber: { type: String, default: "" },
-    khataNumber: { type: String, default: "" },
+    surveyNumber: { type: String, default: "", match: /^[a-zA-Z0-9\/\-\s.,()]*$/ },
+    khasraNumber: { type: String, default: "", match: /^[a-zA-Z0-9\/\-\s.,()]*$/ },
+    khataNumber: { type: String, default: "", match: /^[a-zA-Z0-9\/\-\s.,()]*$/ },
     plotArea: {
       value: { type: String, default: "" },
       unit: { type: String, default: "" }
@@ -77,6 +77,10 @@ const landDocumentSchema = new mongoose.Schema(
       type: String,
       enum: ['Pending', 'Processing', 'Needs Review', 'Validated'],
       default: 'Pending',
+    },
+    flaggedFields: {
+      type: [String],
+      default: [],
     },
     scoringDetails: {
       type: scoringDetailsSchema,

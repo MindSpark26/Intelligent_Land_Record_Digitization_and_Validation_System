@@ -52,9 +52,14 @@ const landRecordSchema = {
         registrationInformation: { type: SchemaType.STRING }
       },
       required: ["landownerDetails", "surveyNumber", "khasraNumber", "khataNumber", "plotArea", "district", "tehsil", "village", "landClassification", "ownershipDetails", "mutationRecords", "registrationInformation"]
+    },
+    flaggedFields: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: "List of exactly matched JSON keys (e.g., 'khasraNumber', 'primaryOwnerName') that are low confidence."
     }
   },
-  required: ["documentQuality", "extractedData"]
+  required: ["documentQuality", "extractedData", "flaggedFields"]
 };
 
 /**
@@ -101,15 +106,19 @@ async function processLandDocument(fileBuffer, mimeType) {
     });
 
     const imagePart = fileToGenerativePart(fileBuffer, mimeType);
-    const prompt = `You are an expert Indian Land Record digitizer. You accept land record documents in any condition (even if blurry, torn, or handwritten) and in multiple Indian languages or English.
-Please extract the required fields accurately. If a field is not found or unreadable, do your best to infer or return an empty string.
+    const prompt = `You are an expert AI system trained on all regional Indian land revenue records (7/12, Khatauni, Patta, etc.) across all languages. You accept land record documents in any condition (even if blurry, torn, or handwritten).
+Please extract the required fields accurately.
 Assess the document quality, and provide an aiBaseConfidence (0-100) assessing only the visual legibility/clarity of the text.
 
 STRICT EXTRACTION RULES:
-- RULE 1 (Strike-throughs): If a value is crossed out, scribbled over, or visually cancelled, IGNORE IT entirely. Only extract the final, un-crossed corrected value.
-- RULE 2 (Strict Numeric Typing): Fields like 'khataNumber', 'khasraNumber', and 'mutationRecords' are identifiers. If a field clearly contains irrelevant alphabetic dictionary words or jokes (e.g., 'Nuclear Physics'), discard it and return an empty string "".
-- RULE 3 (All-or-Nothing Legibility): If any part of a number or word is obscured, scribbled, or illegible (e.g., you can only read the last two digits of a four-digit number), you must discard the ENTIRE value and return an empty string "". Do not guess or return partial fragments.
-- RULE 4 (Plot Area Separation): For plotArea, separate the number from the unit. Extract only the digits/decimals into \`plotArea.value\`. Extract the measurement unit (e.g., Hectares, Ares, Acres, Bigha, Guntha, Sq Meters) into \`plotArea.unit\`. If no unit is written, leave \`unit\` as an empty string.`;
+- RULE 1 (Universal Numeral Rule): Regardless of the document's language, you MUST convert all native script numerals (e.g., Gujarati, Hindi, Marathi, Tamil digits) into standard English Arabic digits (0-9) before outputting JSON.
+- RULE 2 (Semantic Field Mapping): Map regional terms to our standard JSON schema based on semantic meaning, not literal translation. For example, if a document contains a regional sub-division indicator (like 'Paiki', 'Hissa', 'Bata', or 'A/B'), map it intelligently to the closest matching field like 'khasraNumber' or append it to 'surveyNumber'. If a specific field concept (like Khata or Khasra) does not exist in the state's local system, explicitly return the string 'N/A' for that field. If a field exists but is unreadable, return an empty string "".
+- RULE 3 (Strike-throughs): If a value is crossed out, scribbled over, or visually cancelled, IGNORE IT entirely. Only extract the final, un-crossed corrected value.
+- RULE 4 (Identifiers vs Junk): Fields like 'khataNumber', 'khasraNumber', and 'mutationRecords' are identifiers. If a field clearly contains irrelevant alphabetic dictionary words or jokes, discard it and return an empty string "".
+- RULE 5 (All-or-Nothing Legibility): If any part of a number or word is obscured, scribbled, or illegible, you must discard the ENTIRE value and return an empty string "". Do not guess or return partial fragments.
+- RULE 6 (Plot Area Separation): For plotArea, separate the number from the unit. Extract only the digits/decimals into \`plotArea.value\`. Extract the measurement unit into \`plotArea.unit\`. If no unit is written, leave \`unit\` as an empty string.
+- RULE 7 (Eliminate Language Bias): Do NOT lower the confidence score based on the language of the document. A clear, legible Gujarati document must receive the exact same high confidence score as a clear English document. Base your confidence strictly on the visual clarity of the text, not the script.
+- RULE 8 (Track Low-Confidence Fields): If you are unsure about the accuracy of any specific extracted value due to blurriness, handwriting, or translation ambiguity, push the exact JSON key name (e.g., 'khasraNumber', 'primaryOwnerName') into the \`flaggedFields\` array.`;
 
     const result = await model.generateContent([prompt, imagePart]);
     const responseText = result.response.text();

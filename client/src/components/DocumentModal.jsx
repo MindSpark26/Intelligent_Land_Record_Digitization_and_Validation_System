@@ -88,16 +88,22 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [flaggedFields, setFlaggedFields] = useState(() => document?.flaggedFields || []);
 
   if (!isOpen || !document) return null;
 
-  const NUMERIC_FIELDS = ['khasraNumber', 'khataNumber', 'surveyNumber', 'plotArea.value', 'mutationRecords'];
+  const NUMERIC_FIELDS = ['plotArea.value', 'mutationRecords'];
+  const ALPHANUMERIC_FIELDS = ['khasraNumber', 'khataNumber', 'surveyNumber'];
 
   const validateField = (key, value) => {
-    if (!value) return null;
+    if (!value || value === 'N/A') return null;
     if (NUMERIC_FIELDS.includes(key)) {
       if (/[a-zA-Z]/.test(value)) {
         return 'Only numbers are allowed';
+      }
+    } else if (ALPHANUMERIC_FIELDS.includes(key)) {
+      if (!/^[a-zA-Z0-9\/\-\s.,()]+$/.test(value)) {
+        return 'Contains invalid characters';
       }
     } else {
       if (!/^[a-zA-Z\s]*$/.test(value)) {
@@ -111,10 +117,17 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
     setFormData((prev) => ({ ...prev, [key]: value }));
     const errorMsg = validateField(key, value);
     setErrors((prev) => ({ ...prev, [key]: errorMsg }));
+
+    // Clear flag if the user edits the field
+    setFlaggedFields((prev) => prev.filter((f) => {
+      const parts = key.split('.');
+      return f !== key && f !== parts[parts.length - 1] && f !== parts[0];
+    }));
   };
 
   const handleEdit = () => {
     setFormData(buildFormData(document.extractedData));
+    setFlaggedFields(document.flaggedFields || []);
     setErrors({});
     setIsEditing(true);
     setError(null);
@@ -122,6 +135,7 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
 
   const handleCancel = () => {
     setFormData(buildFormData(document.extractedData));
+    setFlaggedFields(document.flaggedFields || []);
     setErrors({});
     setIsEditing(false);
     setError(null);
@@ -132,6 +146,7 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
     setError(null);
     try {
       const payload = formDataToPayload(formData);
+      payload.flaggedFields = flaggedFields;
       const result = await updateDocument(document._id, payload);
       onSaved(result.document);
       setIsEditing(false);
@@ -147,6 +162,11 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
     setError(null);
     setErrors({});
     onClose();
+  };
+
+  const isFieldFlagged = (key) => {
+    const parts = key.split('.');
+    return flaggedFields.includes(key) || flaggedFields.includes(parts[parts.length - 1]) || flaggedFields.includes(parts[0]);
   };
 
   const hasErrors = Object.values(errors).some((err) => err !== null);
@@ -230,43 +250,55 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-              {FIELD_DEFS.map((field) => (
+              {FIELD_DEFS.map((field) => {
+                const flagged = isFieldFlagged(field.key);
+                return (
                 <div key={field.key}>
                   <label className="block text-[11px] uppercase font-semibold text-slate-400 tracking-wider mb-1">
                     {field.label}
                   </label>
                   {isEditing ? (
                     field.key === 'plotArea' ? (
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            placeholder="Value"
-                            value={formData['plotArea.value'] || ''}
-                            onChange={(e) => handleFieldChange('plotArea.value', e.target.value)}
-                            className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors bg-white text-slate-800 ${
-                              errors['plotArea.value']
-                                ? 'border-red-500 focus:ring-red-500/40 focus:border-red-500'
-                                : 'border-slate-200 focus:ring-orange-500/40 focus:border-orange-500'
+                      <div className="flex flex-col">
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              placeholder="Value"
+                              value={formData['plotArea.value'] || ''}
+                              onChange={(e) => handleFieldChange('plotArea.value', e.target.value)}
+                              className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors text-slate-800 ${
+                                errors['plotArea.value']
+                                  ? 'border-red-500 bg-white focus:ring-red-500/40 focus:border-red-500'
+                                  : flagged 
+                                  ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500/40' 
+                                  : 'border-slate-200 bg-white focus:ring-orange-500/40 focus:border-orange-500'
+                              }`}
+                            />
+                          </div>
+                          <select
+                            value={formData['plotArea.unit'] || ''}
+                            onChange={(e) => handleFieldChange('plotArea.unit', e.target.value)}
+                            className={`w-[120px] px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 text-slate-800 ${
+                              flagged 
+                                ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500/40' 
+                                : 'border-slate-200 bg-white focus:ring-orange-500/40 focus:border-orange-500'
                             }`}
-                          />
-                          {errors['plotArea.value'] && (
-                            <span className="text-red-500 text-sm mt-1 block">{errors['plotArea.value']}</span>
-                          )}
+                          >
+                            <option value="">Unit</option>
+                            <option value="Hectares">Hectares</option>
+                            <option value="Ares">Ares</option>
+                            <option value="Sq Meters">Sq Meters</option>
+                            <option value="Acres">Acres</option>
+                            <option value="Bigha">Bigha</option>
+                            <option value="Guntha">Guntha</option>
+                          </select>
                         </div>
-                        <select
-                          value={formData['plotArea.unit'] || ''}
-                          onChange={(e) => handleFieldChange('plotArea.unit', e.target.value)}
-                          className="w-[120px] px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 bg-white text-slate-800"
-                        >
-                          <option value="">Unit</option>
-                          <option value="Hectares">Hectares</option>
-                          <option value="Ares">Ares</option>
-                          <option value="Sq Meters">Sq Meters</option>
-                          <option value="Acres">Acres</option>
-                          <option value="Bigha">Bigha</option>
-                          <option value="Guntha">Guntha</option>
-                        </select>
+                        {errors['plotArea.value'] ? (
+                          <span className="text-red-500 text-sm mt-1 block">{errors['plotArea.value']}</span>
+                        ) : flagged ? (
+                          <span className="text-red-600 text-xs font-bold mt-1 block">⚠ Low AI Confidence - Please verify</span>
+                        ) : null}
                       </div>
                     ) : (
                       <div>
@@ -274,34 +306,43 @@ export default function DocumentModal({ document, isOpen, onClose, onSaved }) {
                           type="text"
                           value={formData[field.key] || ''}
                           onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                          className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors bg-white text-slate-800 ${
+                          className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors text-slate-800 ${
                             errors[field.key]
-                              ? 'border-red-500 focus:ring-red-500/40 focus:border-red-500'
-                              : 'border-slate-200 focus:ring-orange-500/40 focus:border-orange-500'
+                              ? 'border-red-500 bg-white focus:ring-red-500/40 focus:border-red-500'
+                              : flagged 
+                              ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500/40' 
+                              : 'border-slate-200 bg-white focus:ring-orange-500/40 focus:border-orange-500'
                           }`}
                         />
-                        {errors[field.key] && (
+                        {errors[field.key] ? (
                           <span className="text-red-500 text-sm mt-1 block">{errors[field.key]}</span>
-                        )}
+                        ) : flagged ? (
+                          <span className="text-red-600 text-xs font-bold mt-1 block">⚠ Low AI Confidence - Please verify</span>
+                        ) : null}
                       </div>
                     )
                   ) : (
-                    <p className="text-sm text-slate-800 py-2 px-3 bg-slate-50 rounded-lg min-h-[38px] flex items-center">
-                      {field.key === 'plotArea' ? (
-                        (document.extractedData?.plotArea?.value || document.extractedData?.plotArea?.unit) ? (
-                          `${document.extractedData.plotArea.value || ''} ${document.extractedData.plotArea.unit || ''}`.trim()
+                    <div>
+                      <p className={`text-sm py-2 px-3 rounded-lg min-h-[38px] flex items-center ${flagged ? 'bg-red-50 text-red-900 border border-red-200' : 'bg-slate-50 text-slate-800'}`}>
+                        {field.key === 'plotArea' ? (
+                          (document.extractedData?.plotArea?.value || document.extractedData?.plotArea?.unit) ? (
+                            `${document.extractedData.plotArea.value || ''} ${document.extractedData.plotArea.unit || ''}`.trim()
+                          ) : (
+                            <span className={flagged ? "text-red-400" : "text-slate-300"}>—</span>
+                          )
                         ) : (
-                          <span className="text-slate-300">—</span>
-                        )
-                      ) : (
-                        getNestedValue(document.extractedData, field.key) || (
-                          <span className="text-slate-300">—</span>
-                        )
+                          getNestedValue(document.extractedData, field.key) || (
+                            <span className={flagged ? "text-red-400" : "text-slate-300"}>—</span>
+                          )
+                        )}
+                      </p>
+                      {flagged && (
+                        <span className="text-red-600 text-xs font-bold mt-1 block">⚠ Low AI Confidence - Please verify</span>
                       )}
-                    </p>
+                    </div>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           )}
 

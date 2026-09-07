@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { fetchDocuments, deleteDocument } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
 import DocumentModal from '@/components/DocumentModal';
@@ -12,6 +12,35 @@ export default function DashboardPage() {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("date-desc");
+
+  const filteredAndSortedDocuments = useMemo(() => {
+    let result = documents.filter((doc) => {
+      const name = doc.originalName || doc.filename || "";
+      return name.toLowerCase().includes(searchTerm.toLowerCase().trim());
+    });
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-desc':
+          return new Date(b.createdAt || b.uploadDate) - new Date(a.createdAt || a.uploadDate);
+        case 'date-asc':
+          return new Date(a.createdAt || a.uploadDate) - new Date(b.createdAt || b.uploadDate);
+        case 'score-desc':
+          return (b.scoringDetails?.finalScore ?? b.confidenceScore ?? 0) - (a.scoringDetails?.finalScore ?? a.confidenceScore ?? 0);
+        case 'score-asc':
+          return (a.scoringDetails?.finalScore ?? a.confidenceScore ?? 0) - (b.scoringDetails?.finalScore ?? b.confidenceScore ?? 0);
+        case 'alpha-asc':
+          return (a.originalName || a.filename || "").localeCompare(b.originalName || b.filename || "", undefined, { numeric: true, sensitivity: 'base' });
+        case 'alpha-desc':
+          return (b.originalName || b.filename || "").localeCompare(a.originalName || a.filename || "", undefined, { numeric: true, sensitivity: 'base' });
+        default:
+          return 0;
+      }
+    });
+    return result;
+  }, [documents, searchTerm, sortBy]);
 
   const loadDocuments = async () => {
     try {
@@ -78,9 +107,28 @@ export default function DashboardPage() {
     <div className="relative h-full min-h-screen">
       <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(to right, #e2e8f0 1px, transparent 1px), linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.4 }} />
       <div className="relative z-10">
+
+      {/* Hero Banner Section */}
+      <div className="-mx-8 -mt-8 mb-8 relative h-64 sm:h-72 flex items-end overflow-hidden shadow-sm">
+        <div className="absolute inset-0">
+          <img 
+            src="/banner.jpg" 
+            alt="Agricultural Land" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/40 to-slate-900/10" />
+        </div>
+        <div className="relative z-10 px-8 pb-8 w-full">
+          <h2 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight drop-shadow-sm mb-2">Land AI</h2>
+          <p className="text-lg text-slate-200 font-medium max-w-2xl drop-shadow-sm">
+            Digitize, analyze, and manage agricultural land records with high-precision AI verification.
+          </p>
+        </div>
+      </div>
+
       {/* Page header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Document Dashboard</h1>
+        <h3 className="text-2xl font-bold text-slate-900">Document Dashboard</h3>
         <p className="text-sm text-slate-600 mt-1">
           Track uploaded land records and their AI processing status.
         </p>
@@ -155,17 +203,47 @@ export default function DashboardPage() {
 
       {/* Documents table */}
       <div className="bg-white rounded-xl border border-slate-200/60 overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-800">Uploaded Documents</h2>
-          <button
-            onClick={loadDocuments}
-            className="text-xs text-slate-500 hover:text-orange-500 font-medium transition-colors flex items-center gap-1.5"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
-            </svg>
-            Refresh
-          </button>
+        <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <h2 className="text-base font-semibold text-slate-800 shrink-0 w-full sm:w-auto">Uploaded Documents</h2>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search by file name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 pr-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 w-full sm:w-64 text-slate-800"
+              />
+            </div>
+            
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-1.5 text-sm border border-slate-200 rounded-md focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 bg-white w-full sm:w-auto text-slate-800"
+            >
+              <option value="date-desc">Date: Newest First</option>
+              <option value="date-asc">Date: Oldest First</option>
+              <option value="score-desc">Score: High to Low</option>
+              <option value="score-asc">Score: Low to High</option>
+              <option value="alpha-asc">Name: A to Z</option>
+              <option value="alpha-desc">Name: Z to A</option>
+            </select>
+
+            <button
+              onClick={loadDocuments}
+              className="text-xs text-slate-500 hover:text-orange-500 font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap px-2"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+              </svg>
+              Refresh
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -181,7 +259,7 @@ export default function DashboardPage() {
         ) : error ? (
           <div className="px-6 py-16 text-center">
             <p className="text-sm text-red-500">⚠ {error}</p>
-            <p className="text-xs text-slate-400 mt-1">Make sure the backend server is running on port 5001.</p>
+            <p className="text-xs text-slate-400 mt-1">Make sure the backend server is running on port 5000.</p>
           </div>
         ) : documents.length === 0 ? (
           <div className="px-6 py-16 text-center flex flex-col items-center">
@@ -204,6 +282,10 @@ export default function DashboardPage() {
             >
               Upload Document
             </a>
+          </div>
+        ) : filteredAndSortedDocuments.length === 0 && searchTerm ? (
+          <div className="px-6 py-16 text-center flex flex-col items-center">
+            <p className="text-base font-medium text-slate-800">No documents match your search query.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -228,7 +310,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {documents.map((doc) => (
+                {filteredAndSortedDocuments.map((doc) => (
                   <tr
                     key={doc._id}
                     className="hover:bg-slate-50/50 transition-colors duration-150"
