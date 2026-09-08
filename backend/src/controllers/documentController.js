@@ -1,7 +1,3 @@
-const express = require('express');
-const router = express.Router();
-const upload = require('../config/multer');
-const fs = require('fs');
 const LandDocument = require('../models/LandDocument');
 const { processLandDocument } = require('../services/aiExtractor');
 const { calculateDocumentScore } = require('../utils/scoringService');
@@ -10,7 +6,7 @@ const { calculateDocumentScore } = require('../utils/scoringService');
  * POST /api/upload
  * Accepts a single file upload, creates a DB record, and triggers AI processing.
  */
-router.post('/upload', upload.single('document'), async (req, res) => {
+async function uploadDocument(req, res) {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded. Please provide a PDF or image file.' });
@@ -20,7 +16,7 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     const response = await fetch(req.file.path);
     const arrayBuffer = await response.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
-    
+
     const aiResult = await processLandDocument(fileBuffer, req.file.mimetype);
 
     // --- Step 2: Score document and save ---
@@ -57,13 +53,13 @@ router.post('/upload', upload.single('document'), async (req, res) => {
     console.error('[Upload Error]', err);
     return res.status(500).json({ error: 'AI failed to process the document', details: err.message });
   }
-});
+}
 
 /**
  * GET /api/documents
  * Returns all documents sorted by newest first.
  */
-router.get('/documents', async (_req, res) => {
+async function getDocuments(_req, res) {
   try {
     const documents = await LandDocument.find().sort({ uploadDate: -1 });
     return res.json(documents);
@@ -71,14 +67,14 @@ router.get('/documents', async (_req, res) => {
     console.error('[Fetch Error]', err.message);
     return res.status(500).json({ error: 'Failed to fetch documents' });
   }
-});
+}
 
 /**
  * PUT /api/documents/:id
  * Updates the extractedData fields of an existing document.
  * Recalculates confidenceScore and status based on the edited data.
  */
-router.put('/documents/:id', async (req, res) => {
+async function updateDocument(req, res) {
   try {
     const { landownerDetails, flaggedFields, ...flatFields } = req.body;
 
@@ -143,13 +139,13 @@ router.put('/documents/:id', async (req, res) => {
     console.error('[Update Error]', err.message);
     return res.status(500).json({ error: 'Failed to update document', details: err.message });
   }
-});
+}
 
 /**
  * DELETE /api/documents/:id
  * Permanently removes a document from the database.
  */
-router.delete('/documents/:id', async (req, res) => {
+async function deleteDocument(req, res) {
   try {
     const deleted = await LandDocument.findByIdAndDelete(req.params.id);
 
@@ -162,6 +158,6 @@ router.delete('/documents/:id', async (req, res) => {
     console.error('[Delete Error]', err.message);
     return res.status(500).json({ error: 'Failed to delete document', details: err.message });
   }
-});
+}
 
-module.exports = router;
+module.exports = { uploadDocument, getDocuments, updateDocument, deleteDocument };

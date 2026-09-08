@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { uploadDocument } from '@/lib/api';
+import { uploadDocument } from '@/services/api';
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);

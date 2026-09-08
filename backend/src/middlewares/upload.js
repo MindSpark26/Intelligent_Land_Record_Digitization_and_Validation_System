@@ -1,21 +1,13 @@
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('cloudinary').v2;
-const path = require('path');
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+const cloudinary = require('../config/cloudinary');
 
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary,
   params: {
     folder: 'land_records',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'pdf', 'tiff']
-  }
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'pdf', 'tiff'],
+  },
 });
 
 const fileFilter = (_req, file, cb) => {

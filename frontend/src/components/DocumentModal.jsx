@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { updateDocument } from '@/lib/api';
+import { updateDocument } from '@/services/api';
 
 /**
  * Field definitions for the extracted data form.

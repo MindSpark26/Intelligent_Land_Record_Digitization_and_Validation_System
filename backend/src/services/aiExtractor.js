@@ -80,7 +80,7 @@ function fileToGenerativePart(buffer, mimeType) {
 
 
 /**
- * Processes a document image/pdf using Gemini 1.5 Flash.
+ * Processes a document image/pdf using Google Gemini (model id set below).
  * @param {Buffer} fileBuffer
  * @param {string} mimeType
  */

@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 async function testUpload() {
-  const filePath = '../test-land-record.pdf';
+  const filePath = '../../test-land-record.pdf';
   if (!fs.existsSync(filePath)) {
     console.error('Test file not found');
     return;

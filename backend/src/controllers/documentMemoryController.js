@@ -1,7 +1,3 @@
-const express = require('express');
-const router = express.Router();
-const upload = require('../config/multer');
-const { v4: uuidv4 } = require('crypto');
 const { calculateDocumentScore } = require('../utils/scoringService');
 
 // ---------- In-Memory Store ----------
@@ -32,7 +28,7 @@ function processDocument(docId) {
     doc.extractedData = dummyDataPool[Math.floor(Math.random() * dummyDataPool.length)];
     const aiBaseConfidence = Math.round(Math.random() * 35 + 40);
     const { scoringDetails, status } = calculateDocumentScore(doc.extractedData, false, aiBaseConfidence);
-    
+
     doc.scoringDetails = scoringDetails;
     doc.status = status;
 
@@ -43,7 +39,7 @@ function processDocument(docId) {
 /**
  * POST /api/upload
  */
-router.post('/upload', upload.single('document'), (req, res) => {
+function uploadDocument(req, res) {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded. Please provide a PDF or image file.' });
@@ -77,12 +73,12 @@ router.post('/upload', upload.single('document'), (req, res) => {
     console.error('[Upload Error]', err.message);
     return res.status(500).json({ error: 'Failed to upload document' });
   }
-});
+}
 
 /**
  * GET /api/documents
  */
-router.get('/documents', (_req, res) => {
+function getDocuments(_req, res) {
   try {
     // Return sorted newest first
     const sorted = [...documents].sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
@@ -91,13 +87,13 @@ router.get('/documents', (_req, res) => {
     console.error('[Fetch Error]', err.message);
     return res.status(500).json({ error: 'Failed to fetch documents' });
   }
-});
+}
 
 /**
  * PUT /api/documents/:id
  * Updates extractedData fields of an in-memory document.
  */
-router.put('/documents/:id', (req, res) => {
+function updateDocument(req, res) {
   try {
     const doc = documents.find((d) => d._id === req.params.id);
     if (!doc) {
@@ -140,13 +136,13 @@ router.put('/documents/:id', (req, res) => {
     console.error('[Update Error]', err.message);
     return res.status(500).json({ error: 'Failed to update document', details: err.message });
   }
-});
+}
 
 /**
  * DELETE /api/documents/:id
  * Permanently removes a document from the in-memory store.
  */
-router.delete('/documents/:id', (req, res) => {
+function deleteDocument(req, res) {
   try {
     const index = documents.findIndex((d) => d._id === req.params.id);
     if (index === -1) {
@@ -159,6 +155,6 @@ router.delete('/documents/:id', (req, res) => {
     console.error('[Delete Error]', err.message);
     return res.status(500).json({ error: 'Failed to delete document', details: err.message });
   }
-});
+}
 
-module.exports = router;
+module.exports = { uploadDocument, getDocuments, updateDocument, deleteDocument };

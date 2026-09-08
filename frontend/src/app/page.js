@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { fetchDocuments, deleteDocument } from '@/lib/api';
+import { useState, useMemo } from 'react';
+import { deleteDocument } from '@/services/api';
+import { useDocuments } from '@/hooks/useDocuments';
 import StatusBadge from '@/components/StatusBadge';
 import DocumentModal from '@/components/DocumentModal';
 
 export default function DashboardPage() {
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { documents, setDocuments, loading, error, reload } = useDocuments();
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
@@ -41,25 +40,6 @@ export default function DashboardPage() {
     });
     return result;
   }, [documents, searchTerm, sortBy]);
-
-  const loadDocuments = async () => {
-    try {
-      const data = await fetchDocuments();
-      setDocuments(data);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadDocuments();
-    // Auto-refresh every 4 seconds to pick up mock AI updates
-    const interval = setInterval(loadDocuments, 4000);
-    return () => clearInterval(interval);
-  }, []);
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('en-IN', {
@@ -235,7 +215,7 @@ export default function DashboardPage() {
             </select>
 
             <button
-              onClick={loadDocuments}
+              onClick={reload}
               className="text-xs text-slate-500 hover:text-orange-500 font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap px-2"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
